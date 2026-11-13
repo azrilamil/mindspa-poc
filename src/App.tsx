@@ -1,407 +1,442 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { CHECK_IN_QUESTIONS, SESSION_PROMPTS, SESSION_SECONDS } from './data/prompts'
+/**
+ * The application root.
+ *
+ * Two top level destinations: the participant journey, whose internal phase is
+ * governed by the state machine in `app/journey.ts`, and the researcher dashboard
+ * at the real `#/admin` URL. The route decides which one is mounted, so a reviewer
+ * can link straight to the dashboard.
+ *
+ * The update banner sits outside both branches on purpose: an app waiting for a
+ * reload is exactly when somebody needs to be told a new version is ready.
+ */
+
+import { useCallback, useMemo, useState } from 'react'
+import { MoreHorizontal, Sparkles } from 'lucide-react'
+
+import { navigateTo } from '@/app/routes'
+import { usePwaUpdate, useRoute } from '@/app/hooks'
+import { useDemoSession } from '@/app/useDemoSession'
+import { resolvePhase, type JourneyPhase } from '@/app/journey'
+import { dataMode } from '@/data'
 import {
-  addEntry,
-  averageAnswers,
-  loadEntries,
-  resetDemoData,
-  type CheckInAnswers,
-  type ProgressEntry,
-} from './storage'
+  AppLayout,
+  type NavDestination,
+} from '@/components/layout/AppLayout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { PwaUpdateBanner } from '@/components/pwa/PwaUpdateBanner'
+import { SplashScreen } from '@/screens/SplashScreen'
+import { LandingScreen } from '@/screens/LandingScreen'
+import { WellbeingCheckScreen } from '@/screens/WellbeingCheckScreen'
+import { GuidedSessionView } from '@/screens/GuidedSessionView'
+import { HomeScreen } from '@/screens/HomeScreen'
+import { DailyCheckInScreen } from '@/screens/DailyCheckInScreen'
+import { RelaxationToolsView } from '@/screens/RelaxationToolsView'
+import { AudioLibraryView } from '@/screens/AudioLibraryView'
+import { JournalView } from '@/screens/JournalView'
+import { LearnView } from '@/screens/LearnView'
+import { ProgressView } from '@/screens/ProgressView'
+import { MoreMenuView } from '@/screens/MoreMenuView'
+import { ResearcherDashboard } from '@/screens/ResearcherDashboard'
+import { summariseProgress } from '@/domain/progress'
+import { isFollowUpDue } from '@/app/journey'
+import type { PracticeEntry } from '@/domain/practice'
 
-type Page = 'home' | 'check-in' | 'session' | 'progress'
+type EntryPhase = 'splash' | 'landing' | 'app'
 
-const PAGES: { id: Page; label: string; path: string }[] = [
-  { id: 'home', label: 'Home', path: '#/' },
-  { id: 'check-in', label: 'Check-in', path: '#/check-in' },
-  { id: 'session', label: 'Session', path: '#/session' },
-  { id: 'progress', label: 'Progress', path: '#/progress' },
-]
-
-function pageFromHash(hash: string): Page {
-  const path = hash.replace(/^#/, '') || '/'
-  if (path.startsWith('/check-in')) return 'check-in'
-  if (path.startsWith('/session')) return 'session'
-  if (path.startsWith('/progress')) return 'progress'
-  return 'home'
-}
-
-function formatWhen(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatTimer(total: number): string {
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-function DemoBanner() {
-  return (
-    <div className="banner" role="note">
-      Demo with synthetic data, not a medical tool.
-    </div>
-  )
-}
-
-function Layout({
-  page,
-  children,
-}: {
-  page: Page
-  children: ReactNode
-}) {
-  return (
-    <>
-      <DemoBanner />
-      <div className="shell">
-        <header className="topbar">
-          <a className="brand" href="#/" aria-label="MindSpa POC home">
-            <img className="brand-mark" src="/favicon.svg" alt="" />
-            <div>
-              <h1>MindSpa POC</h1>
-              <p>Portfolio demonstration</p>
-            </div>
-          </a>
-          <nav aria-label="Main">
-            {PAGES.map((item) => (
-              <a
-                key={item.id}
-                href={item.path}
-                className={item.id === page ? 'active' : undefined}
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </header>
-        {children}
-        <footer className="footer">
-          <p>
-            Built by Mohd Azril Amil as a public portfolio demo.{' '}
-            <a href="https://github.com/azrilamil/mindspa-poc">Source on GitHub</a>.
-          </p>
-        </footer>
-      </div>
-    </>
-  )
-}
-
-function Home() {
-  return (
-    <>
-      <section className="hero">
-        <h2>A mindfulness research app, rebuilt as a clean proof of concept.</h2>
-        <p className="lede">
-          MindSpa POC is an English-only portfolio demo. It shows the engineering behind
-          a wellbeing check-in and a short guided session, using fake data stored only
-          in your browser.
-        </p>
-        <p className="muted">
-          This is not a medical product, it does not give health advice, and it is not
-          affiliated with any clinic, university, or other institution. Prompts on this
-          site were written fresh for the demonstration.
-        </p>
-        <div className="actions">
-          <a className="btn" href="#/check-in">
-            Start a check-in
-          </a>
-          <a className="btn-secondary" href="#/session">
-            Try a session
-          </a>
-          <a className="btn-secondary" href="#/progress">
-            View progress
-          </a>
-        </div>
-      </section>
-      <div className="grid">
-        <div className="stat">
-          <strong>Local only</strong>
-          <span className="muted">No accounts and no backend. Data stays in this browser.</span>
-        </div>
-        <div className="stat">
-          <strong>Original prompts</strong>
-          <span className="muted">Generic wellbeing questions written for this demo.</span>
-        </div>
-        <div className="stat">
-          <strong>Tested and packaged</strong>
-          <span className="muted">Vitest, lint, Docker, and GitHub Actions CI.</span>
-        </div>
-      </div>
-    </>
-  )
-}
-
-function CheckIn({ onSaved }: { onSaved: (entries: ProgressEntry[]) => void }) {
-  const [answers, setAnswers] = useState<CheckInAnswers>({})
-  const [done, setDone] = useState(false)
-  const complete = CHECK_IN_QUESTIONS.every((q) => typeof answers[q.id] === 'number')
-
-  function submit() {
-    if (!complete) return
-    const average = averageAnswers(answers)
-    onSaved(
-      addEntry({
-        kind: 'check-in',
-        at: new Date().toISOString(),
-        answers: { ...answers },
-        average,
-      }),
-    )
-    setDone(true)
-  }
-
-  if (done) {
-    return (
-      <section className="card">
-        <h2>Check-in saved</h2>
-        <p>
-          Your answers are stored only in this browser, alongside the synthetic sample
-          history. Nothing is sent to a server.
-        </p>
-        <p className="muted">Average of your four ratings: {averageAnswers(answers)}</p>
-        <div className="actions">
-          <a className="btn" href="#/progress">
-            See progress
-          </a>
-          <button
-            className="btn-secondary"
-            type="button"
-            onClick={() => {
-              setAnswers({})
-              setDone(false)
-            }}
-          >
-            Start another
-          </button>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className="card">
-      <h2>Wellbeing check-in</h2>
-      <p className="muted">
-        Four short ratings, from 1 to 5. These prompts are original and generic. They
-        are not a clinical scale.
-      </p>
-      {CHECK_IN_QUESTIONS.map((q) => (
-        <div className="question" key={q.id}>
-          <p id={`${q.id}-label`}>{q.prompt}</p>
-          <div className="scale" role="radiogroup" aria-labelledby={`${q.id}-label`}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                role="radio"
-                aria-checked={answers[q.id] === n}
-                className={answers[q.id] === n ? 'selected' : undefined}
-                onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: n }))}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="scale-labels">
-            <span>{q.lowLabel}</span>
-            <span>{q.highLabel}</span>
-          </div>
-        </div>
-      ))}
-      <button className="btn" type="button" disabled={!complete} onClick={submit}>
-        Save check-in
-      </button>
-    </section>
-  )
-}
-
-function Session({ onSaved }: { onSaved: (entries: ProgressEntry[]) => void }) {
-  const [running, setRunning] = useState(false)
-  const [done, setDone] = useState(false)
-  const [remaining, setRemaining] = useState(SESSION_SECONDS)
-  const [promptIndex, setPromptIndex] = useState(0)
-
-  useEffect(() => {
-    if (!running) return undefined
-    const tick = window.setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          window.clearInterval(tick)
-          setRunning(false)
-          setDone(true)
-          onSaved(
-            addEntry({
-              kind: 'session',
-              at: new Date().toISOString(),
-              durationSeconds: SESSION_SECONDS,
-            }),
-          )
-          return 0
-        }
-        return r - 1
-      })
-    }, 1000)
-    const rotate = window.setInterval(() => {
-      setPromptIndex((i) => (i + 1) % SESSION_PROMPTS.length)
-    }, 15000)
-    return () => {
-      window.clearInterval(tick)
-      window.clearInterval(rotate)
-    }
-  }, [running, onSaved])
-
-  function start() {
-    setRemaining(SESSION_SECONDS)
-    setPromptIndex(0)
-    setDone(false)
-    setRunning(true)
-  }
-
-  return (
-    <section className="card session-stage">
-      <h2>Guided session</h2>
-      <p className="muted">
-        A two-minute breathing pause with rotating prompts. Nothing is recorded except
-        that a session was completed, and only in this browser.
-      </p>
-      <p className="timer" aria-live="polite">
-        <span className="sr-only">Time remaining </span>
-        {formatTimer(remaining)}
-      </p>
-      <p className="prompt">{SESSION_PROMPTS[promptIndex]}</p>
-      {done ? (
-        <>
-          <p>Session complete. Well done for taking the two minutes.</p>
-          <div className="actions" style={{ justifyContent: 'center' }}>
-            <a className="btn" href="#/progress">
-              See progress
-            </a>
-            <button className="btn-secondary" type="button" onClick={start}>
-              Start again
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="actions" style={{ justifyContent: 'center' }}>
-          {!running ? (
-            <button className="btn" type="button" onClick={start}>
-              Begin session
-            </button>
-          ) : (
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => {
-                setRunning(false)
-                setRemaining(SESSION_SECONDS)
-              }}
-            >
-              Stop
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
-function ProgressView({
-  entries,
-  onReset,
-}: {
-  entries: ProgressEntry[]
-  onReset: () => void
-}) {
-  const checkIns = entries.filter((e) => e.kind === 'check-in')
-  const sessions = entries.filter((e) => e.kind === 'session')
-  const latestAverage = checkIns.find((e) => typeof e.average === 'number')?.average
-
-  return (
-    <>
-      <section className="card">
-        <h2>Progress</h2>
-        <p className="muted">
-          Sample history is synthetic. New entries you add stay in this browser only.
-        </p>
-        <div className="grid">
-          <div className="stat">
-            <strong>{checkIns.length}</strong>
-            <span className="muted">Check-ins</span>
-          </div>
-          <div className="stat">
-            <strong>{sessions.length}</strong>
-            <span className="muted">Sessions</span>
-          </div>
-          <div className="stat">
-            <strong>{latestAverage ?? 'n/a'}</strong>
-            <span className="muted">Latest check-in average</span>
-          </div>
-        </div>
-        <div className="actions">
-          <button className="btn-secondary" type="button" onClick={onReset}>
-            Reset to sample data
-          </button>
-        </div>
-      </section>
-      <section className="card">
-        <h2>History</h2>
-        {entries.length === 0 ? (
-          <p className="muted">No entries yet.</p>
-        ) : (
-          <ul className="list">
-            {entries.map((e) => (
-              <li key={e.id}>
-                <span className="tag">{e.kind === 'check-in' ? 'Check-in' : 'Session'}</span>
-                <span>
-                  {e.kind === 'check-in'
-                    ? `Average ${e.average ?? 'n/a'}`
-                    : `${e.durationSeconds ?? 0} seconds`}
-                  {e.synthetic ? ' (sample)' : ''}
-                </span>
-                <span className="muted">{formatWhen(e.at)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
-  )
+const NAV_TITLES: Partial<Record<JourneyPhase, string>> = {
+  home: 'Today',
+  checkIn: 'Daily check-in',
+  tools: 'Practise',
+  audio: 'Audio library',
+  journal: 'Journal',
+  learn: 'Learn mindfulness',
+  progress: 'Progress',
+  wellbeing: 'Wellbeing check',
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>(() =>
-    typeof window === 'undefined' ? 'home' : pageFromHash(window.location.hash),
-  )
-  const [entries, setEntries] = useState<ProgressEntry[]>(() => loadEntries())
+  const route = useRoute()
+  const update = usePwaUpdate()
+  const session = useDemoSession()
+  const [entry, setEntry] = useState<EntryPhase>('splash')
+  const [phase, setPhase] = useState<JourneyPhase>('home')
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined)
 
-  useEffect(() => {
-    const onHash = () => setPage(pageFromHash(window.location.hash))
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
+  const snapshot = useMemo(
+    () => ({
+      hasSession: Boolean(session.data),
+      hasStartCheck: Boolean(
+        session.data?.wellbeing.some((entry_) => entry_.type === 'start'),
+      ),
+      hasGuidedSession: Boolean(
+        session.data?.sessions.some(
+          (entry_) => entry_.kind === 'guided' && entry_.completed,
+        ),
+      ),
+      hasFollowUpCheck: Boolean(
+        session.data?.wellbeing.some((entry_) => entry_.type === 'follow-up'),
+      ),
+      hasLoggedToday: session.hasLoggedToday,
+      startDate: session.data?.user.programmeStartDate,
+      today: session.today,
+    }),
+    [session.data, session.hasLoggedToday, session.today],
+  )
+
+  const derived = resolvePhase(snapshot)
+
+  /**
+   * The phase actually rendered.
+   *
+   * A gated phase always wins over a chosen destination, so the gate cannot be
+   * navigated around once the data says otherwise. Deriving it here rather than
+   * syncing it into state from an effect means there is no window in which the
+   * screen and the data disagree, and no extra render.
+   */
+  const activePhase: JourneyPhase =
+    derived === 'wellbeingStart' || derived === 'guided' ? derived : phase
+
+  const openDemo = useCallback(async () => {
+    await session.startDemo()
+    setEntry('app')
+    setPhase('home')
+  }, [session])
+
+  const goTo = useCallback((next: JourneyPhase) => {
+    setPhase(next)
   }, [])
 
-  const body = useMemo(() => {
-    if (page === 'check-in') return <CheckIn onSaved={setEntries} />
-    if (page === 'session') return <Session onSaved={setEntries} />
-    if (page === 'progress') {
+  const handleNav = useCallback(
+    (destination: NavDestination) => {
+      switch (destination) {
+        case 'home':
+          setPhase('home')
+          break
+        case 'learn':
+          setPhase('learn')
+          break
+        case 'tools':
+          setPhase('tools')
+          break
+        case 'journal':
+          setPhase('journal')
+          break
+        case 'progress':
+          setPhase('progress')
+          break
+      }
+    },
+    [],
+  )
+
+  const activeNav: NavDestination | undefined = useMemo(() => {
+    switch (activePhase) {
+      case 'home':
+        return 'home'
+      case 'learn':
+        return 'learn'
+      case 'tools':
+      case 'audio':
+        return 'tools'
+      case 'journal':
+      case 'checkIn':
+        return 'journal'
+      case 'progress':
+      case 'wellbeing':
+        return 'progress'
+      default:
+        return undefined
+    }
+  }, [activePhase])
+
+  const openAdmin = useCallback(() => navigateTo({ name: 'admin' }), [])
+  const openApp = useCallback(() => navigateTo({ name: 'app' }), [])
+
+  const headerAction = (
+    <button
+      type="button"
+      onClick={() => navigateTo({ name: 'more' })}
+      aria-label="More"
+      title="More"
+      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-lavender-200 bg-white/80 text-lavender-600 shadow-2xs transition-colors hover:bg-white hover:text-lavender-800"
+    >
+      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+    </button>
+  )
+
+  const progressSummary = useMemo(() => {
+    if (!session.data) return null
+    return summariseProgress({
+      startDate: session.data.user.programmeStartDate,
+      today: session.today,
+      checkIns: session.data.checkIns,
+      sessions: session.data.sessions,
+      journal: session.data.journal,
+      wellbeing: session.data.wellbeing,
+    })
+  }, [session.data, session.today])
+
+  if (route.name === 'admin') {
+    return (
+      <div className="bg-spa-canvas min-h-dvh">
+        <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col sm:shadow-[0_0_40px_rgba(109,79,146,0.08)]">
+          <ErrorBoundary region="The researcher dashboard">
+            <ResearcherDashboard load={session.loadResearcher} onBack={openApp} />
+          </ErrorBoundary>
+        </div>
+        <PwaUpdateBanner update={update} />
+      </div>
+    )
+  }
+
+  if (route.name === 'more') {
+    return (
+      <div className="bg-spa-canvas min-h-dvh">
+        <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col sm:shadow-[0_0_40px_rgba(109,79,146,0.08)]">
+          <AppLayout
+            title="More"
+            subtitle="About this build"
+            headerAction={
+              <button
+                type="button"
+                onClick={openApp}
+                className="min-h-11 rounded-full border border-lavender-200 bg-white/80 px-3 text-xs font-semibold text-lavender-700"
+              >
+                Back
+              </button>
+            }
+          >
+            <MoreMenuView
+              dataMode={dataMode()}
+              onResetDemo={session.resetDemo}
+              onOpenAdmin={openAdmin}
+              update={update}
+            />
+          </AppLayout>
+        </div>
+        <PwaUpdateBanner update={update} />
+      </div>
+    )
+  }
+
+  // The splash and the landing are pre-session, so they own their own chrome. A
+  // returning session resolves in the background, and until it does the splash is
+  // a truthful screen to show: it is where an unstarted visit belongs anyway.
+  if (!session.data) {
+    if (entry === 'splash') {
       return (
-        <ProgressView
-          entries={entries}
-          onReset={() => setEntries(resetDemoData())}
-        />
+        <>
+          <div className="bg-spa-canvas min-h-dvh">
+            <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col">
+              <SplashScreen
+                onContinue={() => setEntry('landing')}
+                onOpenDemo={() => void openDemo()}
+                onOpenAdmin={openAdmin}
+                demoLoading={session.loading}
+                demoError={session.error}
+              />
+            </div>
+          </div>
+          <PwaUpdateBanner update={update} />
+        </>
       )
     }
-    return <Home />
-  }, [page, entries])
+    return (
+      <>
+        <div className="bg-spa-canvas min-h-dvh">
+          <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col">
+            <LandingScreen
+              onStartDemo={() => void openDemo()}
+              onBack={() => setEntry('splash')}
+              demoLoading={session.loading}
+              demoError={session.error}
+            />
+          </div>
+        </div>
+        <PwaUpdateBanner update={update} />
+      </>
+    )
+  }
 
-  return <Layout page={page}>{body}</Layout>
+  const data = session.data
+  const startDate = data.user.programmeStartDate
+  const followUpDue = isFollowUpDue(snapshot)
+
+  const shell = (children: React.ReactNode, options?: { nav?: boolean; title?: string; subtitle?: string }) => (
+    <div className="bg-spa-canvas min-h-dvh">
+      <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col sm:shadow-[0_0_40px_rgba(109,79,146,0.08)]">
+        <ErrorBoundary region={options?.title ?? 'This screen'}>
+          <AppLayout
+            nav={options?.nav ?? true}
+            activeNav={activeNav}
+            onNavigate={handleNav}
+            title={options?.title ?? NAV_TITLES[activePhase]}
+            subtitle={
+              options?.subtitle ??
+              (session.programmeDay
+                ? `Day ${session.programmeDay} of 30`
+                : 'Before day one')
+            }
+            headerAction={headerAction}
+          >
+            {children}
+          </AppLayout>
+        </ErrorBoundary>
+      </div>
+      <PwaUpdateBanner update={update} />
+    </div>
+  )
+
+  if (activePhase === 'wellbeingStart' || activePhase === 'guided') {
+    if (!snapshot.hasStartCheck) {
+      return shell(
+        <WellbeingCheckScreen
+          mode="start"
+          onSubmit={async (input) => {
+            await session.saveWellbeing(input)
+          }}
+          onDone={() => goTo('guided')}
+        />,
+        { nav: false, title: 'Wellbeing check' },
+      )
+    }
+    return shell(
+      <GuidedSessionView
+        onComplete={async ({ minutes, tier }) => {
+          await session.recordSession({
+            kind: 'guided',
+            minutes,
+            completed: true,
+            date: session.today,
+            audioTier: tier,
+          })
+        }}
+        onSkip={() => goTo('home')}
+      />,
+      { nav: false, title: 'Guided session' },
+    )
+  }
+
+  if (activePhase === 'checkIn') {
+    if (!startDate) {
+      return shell(
+        <p className="px-6 py-10 text-center text-sm text-lavender-600">
+          The guided session has not finished, so the programme has not started.
+        </p>,
+      )
+    }
+    return shell(
+      <DailyCheckInScreen
+        startDate={startDate}
+        today={session.today}
+        checkIns={data.checkIns}
+        initialDate={selectedDate}
+        loadSeed={(date) => session.port.getPracticeSeed(date)}
+        onSubmit={async (input) => {
+          await session.saveCheckIn(input)
+          setSelectedDate(undefined)
+        }}
+        onDone={() => {
+          setSelectedDate(undefined)
+          goTo('home')
+        }}
+      />,
+    )
+  }
+
+  if (activePhase === 'tools') {
+    return shell(
+      <RelaxationToolsView
+        onPractice={async (entry_: PracticeEntry) => {
+          await session.port.recordPractice(entry_, session.today)
+        }}
+      />,
+    )
+  }
+
+  if (activePhase === 'audio') {
+    return shell(
+      <AudioLibraryView
+        onListened={async ({ trackKey, minutes }) => {
+          await session.port.recordSession({
+            kind: 'audio',
+            minutes,
+            completed: false,
+            date: session.today,
+            trackKey,
+            audioTier: 'bundled',
+          })
+          await session.port.recordPractice(
+            {
+              activity: 'audio',
+              minutes,
+              completedAt: new Date().toISOString(),
+              source: 'audio',
+            },
+            session.today,
+          )
+        }}
+      />,
+    )
+  }
+
+  if (activePhase === 'journal') {
+    return shell(
+      <JournalView
+        entries={data.journal}
+        today={session.today}
+        onSave={session.saveJournal}
+        onDelete={session.deleteJournal}
+      />,
+    )
+  }
+
+  if (activePhase === 'learn') {
+    return shell(<LearnView />)
+  }
+
+  if (activePhase === 'progress' && progressSummary) {
+    return shell(
+      <ProgressView
+        summary={progressSummary}
+        checkIns={data.checkIns}
+        onSelectDate={(date) => {
+          setSelectedDate(date)
+          goTo('checkIn')
+        }}
+        onOpenFollowUp={() => goTo('wellbeing')}
+        followUpDue={followUpDue}
+      />,
+    )
+  }
+
+  if (activePhase === 'wellbeing') {
+    return shell(
+      <WellbeingCheckScreen
+        mode="follow-up"
+        initialAnswers={data.wellbeing.at(-1)?.answers}
+        onSubmit={async (input) => {
+          await session.saveWellbeing(input)
+        }}
+        onDone={() => goTo('progress')}
+      />,
+      { title: 'Follow-up check' },
+    )
+  }
+
+  return shell(
+    <HomeScreen
+      data={data}
+      today={session.today}
+      programmeDay={session.programmeDay}
+      action={session.nextAction ?? 'practice'}
+      onOpenCheckIn={() => goTo('checkIn')}
+      onOpenTools={() => goTo('tools')}
+      onOpenProgress={() => goTo('progress')}
+      onOpenLearn={() => goTo('learn')}
+    />,
+    { title: 'Today' },
+  )
 }
+
+export { Sparkles }

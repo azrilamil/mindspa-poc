@@ -4,19 +4,33 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0F3D3E" />
+    <meta name="theme-color" content="#6d4f92" />
     <meta
       name="description"
-      content="MindSpa POC is a portfolio proof of concept for a mindfulness and wellbeing research app. Demo with synthetic data, not a medical tool."
+      content="MindSpa POC is a portfolio demo of a mindfulness and wellbeing app. Synthetic data, not a clinical study and not a medical tool."
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="MindSpa POC" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MindSpa" />
+
+    <!-- Open Graph, so a shared link reads as a product rather than a bare URL. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MindSpa POC" />
+    <meta
+      property="og:description"
+      content="A calm demo of daily check-ins, guided practices and a thirty day record. Synthetic data, not a medical tool."
+    />
+    <meta property="og:url" content="https://mindspa-poc.azril.io" />
+
     <title>MindSpa POC</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      MindSpa POC needs JavaScript. It is a client side demo with no server rendered
+      fallback.
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

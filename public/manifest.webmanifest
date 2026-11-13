@@ -1,17 +1,22 @@
 {
   "name": "MindSpa POC",
   "short_name": "MindSpa",
-  "description": "A portfolio proof of concept for a mindfulness and wellbeing research app. Demo with synthetic data, not a medical tool.",
+  "description": "A mindful wellbeing demo with synthetic data. Not a medical tool.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F4F1EA",
-  "theme_color": "#0F3D3E",
+  "background_color": "#fde2e4",
+  "theme_color": "#6d4f92",
   "lang": "en",
   "scope": "/",
   "orientation": "portrait",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

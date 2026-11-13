@@ -5,16 +5,39 @@ on:
     branches: [main]
   pull_request:
 
+# No secrets are needed. With VITE_CONVEX_URL unset the app runs on its local adapter
+# with synthetic data, which is exactly the path these jobs exercise.
+permissions:
+  contents: read
+
 jobs:
-  test:
+  quality:
+    name: Lint, test and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload the bundle
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
