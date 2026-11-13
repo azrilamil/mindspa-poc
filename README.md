@@ -49,7 +49,9 @@ Images are added to `docs/screenshots/` as they are captured. The expected files
 - **Daily check-in.** Fifteen moods with distinct faces, six activities, a duration
   and an optional note. Any day up to today can be recorded or corrected.
 - **Guided session.** An eight minute track with a breathing orb, a seek bar and a
-  completion signal taken from the media itself.
+  completion signal taken from the media itself. It opens the programme once, and
+  it can be reopened from Practise or Today afterwards: a repeat records the
+  session for today and leaves the programme start where it is.
 - **Three relaxation tools.** A configurable breathing pacer with optional chimes, a
   five step grounding wizard, and a four step mindful moment with a real countdown.
 - **Audio library.** Four tracks, played from a bucket when configured and from the

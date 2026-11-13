@@ -131,6 +131,12 @@ describe('transitions', () => {
     }
   })
 
+  it('lets the guided session be reopened as a destination', () => {
+    expect(canTransition('guided', 'tools')).toBe(true)
+    expect(canOpen(base, 'guided')).toBe(true)
+    expect(canOpen({ ...base, hasGuidedSession: false }, 'guided')).toBe(true)
+  })
+
   it('names the single successor where there is one', () => {
     expect(nextPhaseAfter('guided')).toBe('home')
     expect(nextPhaseAfter('wellbeingStart')).toBe('guided')

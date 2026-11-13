@@ -16,6 +16,7 @@ import {
   Coffee,
   Ear,
   Headphones,
+  PlayCircle,
   Sparkles,
   Wind,
   X,
@@ -33,9 +34,14 @@ type Tool = 'menu' | 'breathing' | 'grounding' | 'audio' | 'informal'
 export interface RelaxationToolsViewProps {
   /** Record a finished practice, to pre-populate the day's check-in. */
   onPractice: (entry: PracticeEntry) => void | Promise<void>
+  /** Open the guided session again, after the programme has started. */
+  onOpenGuided?: () => void
 }
 
-export function RelaxationToolsView({ onPractice }: RelaxationToolsViewProps) {
+export function RelaxationToolsView({
+  onPractice,
+  onOpenGuided,
+}: RelaxationToolsViewProps) {
   const [tool, setTool] = useState<Tool>('menu')
   /**
    * Why the last finished practice is not in the record, or null.
@@ -147,6 +153,33 @@ export function RelaxationToolsView({ onPractice }: RelaxationToolsViewProps) {
       </header>
 
       <div className="space-y-3">
+        {onOpenGuided && (
+          <button
+            type="button"
+            onClick={onOpenGuided}
+            className="card-spa flex w-full items-center gap-3 border border-sunflower-300/70 bg-gradient-to-r from-sunflower-100/80 to-white p-4 text-left transition-colors hover:bg-sunflower-100"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sunflower-400 text-slate-950">
+              <PlayCircle className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-lavender-800">
+                Guided session
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-lavender-600">
+                The eight minute relaxation with the breathing orb. Finish it and it
+                goes on today's record.
+              </span>
+              <span className="mt-1 block text-[0.625rem] font-medium text-lavender-600">
+                8 minutes, audio
+              </span>
+            </span>
+            <ChevronRight
+              className="h-5 w-5 shrink-0 text-lavender-600"
+              aria-hidden="true"
+            />
+          </button>
+        )}
         <ToolCard
           Icon={Wind}
           title="Breathing exercise"

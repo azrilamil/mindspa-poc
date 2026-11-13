@@ -84,6 +84,11 @@ export function emptySnapshot(date: string): JourneySnapshot {
  * The one gate that matters: `startDate` is only set when the guided session
  * completes, so somebody who entered the demo but never finished the session can
  * never reach the home screen with a programme already running.
+ *
+ * Once the programme is running the guided session is a destination rather than a
+ * gate: `canOpen` permits it again from home and from the tools, so a visitor can
+ * hear the track a second time. A repeat records a session for today and leaves
+ * `startDate` alone.
  */
 export function resolvePhase(snapshot: JourneySnapshot): JourneyPhase {
   if (!snapshot.hasSession) return 'landing'
@@ -111,8 +116,8 @@ const TRANSITIONS: Record<JourneyPhase, readonly JourneyPhase[]> = {
   splash: ['landing'],
   landing: ['wellbeingStart'],
   wellbeingStart: ['guided'],
-  guided: ['home'],
-  home: ['checkIn', 'tools', 'audio', 'journal', 'learn', 'progress', 'wellbeing'],
+  guided: ['home', 'tools'],
+  home: ['checkIn', 'tools', 'audio', 'journal', 'learn', 'progress', 'wellbeing', 'guided'],
   checkIn: ['home'],
   tools: ['home'],
   audio: ['home'],

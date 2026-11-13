@@ -215,6 +215,52 @@ describe('the practice tools', () => {
   })
 })
 
+describe('the guided session after the programme has started', () => {
+  it('opens from practise, records today, and leaves the programme alone', async () => {
+    const user = userEvent.setup()
+    const { store } = renderApp()
+    await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+    await waitFor(() => expect(headingOne(/^today$/i)).toBeInTheDocument())
+    expect(screen.getAllByText(/day 9 of 30/i).length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: /^practise$/i }))
+    await waitFor(() => expect(headingOne(/^practise$/i)).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /guided session/i }))
+    await waitFor(() => expect(headingOne(/^guided session$/i)).toBeInTheDocument())
+    // The player for the real track is on screen.
+    expect(
+      screen.getByRole('slider', { name: /playback position/i }),
+    ).toBeInTheDocument()
+
+    // The reviewer shortcut reports the same completion the media would.
+    await user.click(screen.getByRole('button', { name: /skip to the end/i }))
+    await waitFor(() => expect(screen.getByText(/^session complete$/i)).toBeInTheDocument())
+    expect(screen.getByText(/carries on from where it was/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /back to practise/i }))
+    await waitFor(() => expect(headingOne(/^practise$/i)).toBeInTheDocument())
+
+    // The session is recorded for today, and the start date is untouched.
+    const state = store.read()
+    const today = '2026-01-09'
+    expect(
+      state?.sessions.some((entry) => entry.kind === 'guided' && entry.date === today),
+    ).toBe(true)
+    expect(state?.user?.programmeStartDate).toBe('2026-01-01')
+
+    await user.click(screen.getByRole('button', { name: /^today$/i }))
+    await waitFor(() => expect(headingOne(/^today$/i)).toBeInTheDocument())
+    expect(screen.getAllByText(/day 9 of 30/i).length).toBeGreaterThan(0)
+
+    // Today offers the same door, so the screen is reachable from both tabs.
+    await user.click(screen.getByRole('button', { name: /guided session/i }))
+    await waitFor(() => expect(headingOne(/^guided session$/i)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /back to practise/i }))
+    await waitFor(() => expect(headingOne(/^practise$/i)).toBeInTheDocument())
+  })
+})
+
 describe('the journal', () => {
   it('saves an entry and lists it', async () => {
     const user = userEvent.setup()

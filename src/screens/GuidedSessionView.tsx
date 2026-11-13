@@ -2,15 +2,22 @@
  * The guided session view, formerly the clinic session screen.
  *
  * One eight minute audio track with a breathing orb alongside it, a seek bar, and a
- * completion state. Finishing it starts the programme, which is why completion is
- * decided from the media's own `ended` event rather than from a timer or a button.
+ * completion state. Finishing it for the first time starts the programme, which is
+ * why completion is decided from the media's own `ended` event rather than from a
+ * timer or a button.
+ *
+ * Two modes share the screen. `start` is the first run, the one that opens the
+ * programme. `repeat` is a session reopened from Practise after the programme is
+ * already running: it records the session for today and leaves the existing
+ * programme start alone, so a visitor can always hear the track again without
+ * resetting their progress.
  *
  * The framing is deliberately soft: it is a guided relaxation, and the copy says
  * plainly that it is a demo track, not a clinical intervention.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Headphones, Pause, Play, RotateCcw } from 'lucide-react'
+import { Check, ChevronLeft, Headphones, Pause, Play, RotateCcw } from 'lucide-react'
 
 import { Button, Card, ProgressBar, StatusPill } from '@/components/ui'
 import { SunflowerMascot } from '@/components/SunflowerMascot'
@@ -23,14 +30,29 @@ import {
   isCompletePlayback,
 } from '@/domain/audioTracks'
 
+/** Whether this run opens the programme or repeats a session already opened. */
+export type GuidedSessionMode = 'start' | 'repeat'
+
 export interface GuidedSessionViewProps {
   /** Called once the track has finished, with the minutes heard. */
   onComplete: (summary: { minutes: number; tier: 's3' | 'bundled' | 'generated' }) => void
-  /** Skip ahead, for a reviewer who does not want to sit through eight minutes. */
+  /** Leave the screen: after completion, or from the demo shortcut. */
   onSkip?: () => void
+  /** Leave the screen mid session, from the back control at the top. */
+  onBack?: () => void
+  /** `start` opens the programme, `repeat` records a session and keeps it. */
+  mode?: GuidedSessionMode
+  /** Label for the button on the completion state. */
+  doneLabel?: string
 }
 
-export function GuidedSessionView({ onComplete, onSkip }: GuidedSessionViewProps) {
+export function GuidedSessionView({
+  onComplete,
+  onSkip,
+  onBack,
+  mode = 'start',
+  doneLabel,
+}: GuidedSessionViewProps) {
   const track = useMemo(() => guidedTrack(), [])
   const { snapshot, telemetry, start, toggle, seekFraction, reset } = useAudioPlayer(
     GUIDED_TRACK_KEY,
@@ -62,23 +84,38 @@ export function GuidedSessionView({ onComplete, onSkip }: GuidedSessionViewProps
   }, [isFinished, onComplete, snapshot.duration, snapshot.tier, track])
 
   if (finished) {
+    const copy =
+      mode === 'repeat'
+        ? {
+            title: 'Session complete',
+            detail:
+              'This session is on your record for today. Your programme carries on from where it was.',
+            pill: 'Recorded',
+            action: doneLabel ?? 'Back to practise',
+          }
+        : {
+            title: 'Session complete',
+            detail:
+              'Your programme starts today. From here, a short check-in and a practice whenever you have a few minutes.',
+            pill: 'Started',
+            action: doneLabel ?? 'Go to today',
+          }
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
         <SunflowerMascot expression="happy" className="h-28 w-28" />
         <div className="space-y-2">
-          <h2 className="text-lg font-bold text-lavender-700">Session complete</h2>
+          <h2 className="text-lg font-bold text-lavender-700">{copy.title}</h2>
           <p className="mx-auto max-w-xs text-sm leading-relaxed text-lavender-600">
-            Your programme starts today. From here, a short check-in and a practice
-            whenever you have a few minutes.
+            {copy.detail}
           </p>
         </div>
         <StatusPill tone="success">
           <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          Started
+          {copy.pill}
         </StatusPill>
         {onSkip && (
           <Button fullWidth className="max-w-xs" onClick={onSkip}>
-            Go to today
+            {copy.action}
           </Button>
         )}
       </div>
@@ -87,19 +124,38 @@ export function GuidedSessionView({ onComplete, onSkip }: GuidedSessionViewProps
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-5 py-6">
-      <header className="space-y-1 text-center">
-        <h2 className="text-lg font-bold leading-snug text-lavender-700">
-          {track.title}
-        </h2>
-        <p className="text-xs leading-relaxed text-lavender-600">{track.subtitle}</p>
-      </header>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full bg-white/80 px-4 py-2 text-xs font-semibold text-lavender-700 shadow-2xs transition-colors hover:bg-white hover:text-lavender-900 active:bg-lavender-100"
+        >
+          <ChevronLeft className="h-4 w-4 shrink-0 text-lavender-600" aria-hidden="true" />
+          Back to practise
+        </button>
+      )}
+      <Card className="flex items-center gap-3 border border-lavender-200 bg-gradient-to-r from-lavender-50/90 to-white !p-4">
+        <SunflowerMascot expression="calm" className="h-14 w-14 shrink-0" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <h2 className="text-base font-bold leading-snug text-lavender-800">
+            {track.title}
+          </h2>
+          <p className="text-xs leading-relaxed text-lavender-600">{track.subtitle}</p>
+        </div>
+        <StatusPill
+          tone="warning"
+          className="shrink-0 whitespace-nowrap !px-2 !py-0.5 !text-[0.625rem]"
+        >
+          {Math.round(track.durationSeconds / 60)} min
+        </StatusPill>
+      </Card>
 
       <div className="flex flex-col items-center gap-3">
         <div className="relative flex h-32 w-32 items-center justify-center">
           {snapshot.playing && (
-            <span className="absolute h-32 w-32 animate-ping rounded-full bg-lavender-200/60" />
+            <span className="absolute h-32 w-32 animate-ping rounded-full bg-sunflower-300/50" />
           )}
-          <span className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-tranquil-200 to-lavender-200">
+          <span className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-sunflower-200 to-lavender-200">
             <Headphones className="h-11 w-11 text-lavender-700" aria-hidden="true" />
           </span>
         </div>

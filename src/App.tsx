@@ -137,6 +137,7 @@ export default function App() {
         return 'learn'
       case 'tools':
       case 'audio':
+      case 'guided':
         return 'tools'
       case 'journal':
       case 'checkIn':
@@ -300,8 +301,12 @@ export default function App() {
         { nav: false, title: 'Wellbeing check' },
       )
     }
+    // The first run opens the programme. Any later run is a repeat: it records the
+    // session for today and leaves the programme start where it is.
+    const isRepeat = Boolean(startDate)
     return shell(
       <GuidedSessionView
+        mode={isRepeat ? 'repeat' : 'start'}
         onComplete={async ({ minutes, tier }) => {
           await session.recordSession({
             kind: 'guided',
@@ -311,9 +316,10 @@ export default function App() {
             audioTier: tier,
           })
         }}
-        onSkip={() => goTo('home')}
+        onSkip={() => goTo(isRepeat ? 'tools' : 'home')}
+        onBack={isRepeat ? () => goTo('tools') : undefined}
       />,
-      { nav: false, title: 'Guided session' },
+      { nav: isRepeat, title: 'Guided session' },
     )
   }
 
@@ -350,6 +356,7 @@ export default function App() {
         onPractice={async (entry_: PracticeEntry) => {
           await session.port.recordPractice(entry_, session.today)
         }}
+        onOpenGuided={() => goTo('guided')}
       />,
     )
   }
@@ -434,6 +441,7 @@ export default function App() {
       onOpenTools={() => goTo('tools')}
       onOpenProgress={() => goTo('progress')}
       onOpenLearn={() => goTo('learn')}
+      onOpenGuided={() => goTo('guided')}
     />,
     { title: 'Today' },
   )
