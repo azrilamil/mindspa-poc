@@ -7,6 +7,15 @@ adapter underneath, and a test suite that runs with no backend at all.
 
 **Live demo:** [https://mindspa-poc.azril.io](https://mindspa-poc.azril.io)
 
+The live site is wired to a dedicated Convex deployment at
+[https://convex-demo.azril.io](https://convex-demo.azril.io), separate from any
+private app. Check-ins, journal entries, sessions and wellbeing answers for an
+anonymous demo session are stored there. Writes are rate limited per session, and
+a scheduled job at 03:15 UTC deletes sessions older than 24 hours. The More menu
+shows `Convex demo deployment` when this is active. The researcher dashboard
+still reads a generated synthetic cohort in the client: a visitor's own session
+never appears in that aggregate.
+
 [![CI](https://github.com/azrilamil/mindspa-poc/actions/workflows/ci.yml/badge.svg)](https://github.com/azrilamil/mindspa-poc/actions/workflows/ci.yml)
 
 > **Demo with synthetic data.** This is a portfolio build, not a clinical study and
@@ -73,8 +82,9 @@ Further captures in `docs/screenshots/`: `10-learn.png`, `11-journal.png`, and `
   `#/admin`.
 - **Installable.** A service worker in prompt mode, with an update banner that waits
   for you rather than reloading mid sentence.
-- **Offline first.** With no backend configured, the app runs entirely on a local
-  adapter with the same interface and the same rate limits.
+- **Offline first.** The live demo uses Convex. Locally, with `VITE_CONVEX_URL`
+  unset, the app runs entirely on a local adapter with the same interface and the
+  same rate limits.
 
 ## Tech stack
 
@@ -128,7 +138,7 @@ the synthetic seed.
 To point at a demo deployment:
 
 ```bash
-VITE_CONVEX_URL=https://your-demo-deployment npm run dev
+VITE_CONVEX_URL=https://convex-demo.azril.io npm run dev
 ```
 
 ## Tests and quality gates

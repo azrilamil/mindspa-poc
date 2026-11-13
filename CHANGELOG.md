@@ -4,6 +4,15 @@ All notable changes to this repository. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] 2026-11-13
+
+### Changed
+
+- The live demo at https://mindspa-poc.azril.io is wired to the dedicated
+  Convex deployment at https://convex-demo.azril.io. The More menu shows
+  Convex demo deployment. Sessions older than 24 hours are swept daily at
+  03:15 UTC. The researcher view remains a separate synthetic cohort.
+
 ## [2.0.0] - 2026-11-13
 
 A full rebuild. The previous 1.0.0 was a thin three screen demo; this release replaces
