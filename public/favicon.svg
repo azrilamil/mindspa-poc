@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MindSpa POC">
+  <rect width="64" height="64" rx="14" fill="#0F3D3E"/>
+  <circle cx="32" cy="32" r="20" fill="#F4F1EA"/>
+  <ellipse cx="27" cy="34" rx="9" ry="13" fill="#0F3D3E"/>
+  <ellipse cx="36" cy="34" rx="9" ry="13" fill="#7BA38A"/>
+</svg>
