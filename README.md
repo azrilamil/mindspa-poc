@@ -27,20 +27,29 @@ width rather than merely stretched.
 
 ## Screenshots
 
-Images are added to `docs/screenshots/` as they are captured. The expected files:
+Captured from the live demo at [https://mindspa-poc.azril.io](https://mindspa-poc.azril.io) on 13 Nov 2026 (Asia/Kuala_Lumpur), at a 390 by 844 phone viewport (taller where a screen is longer). The synthetic-data banner is visible on every screen.
 
-| File | Screen |
+| Splash | Today |
 | --- | --- |
-| `docs/screenshots/01-splash.png` | Splash with the mascot and the demo action |
-| `docs/screenshots/02-wellbeing-check.png` | The five prompt wellbeing check |
-| `docs/screenshots/03-guided-session.png` | The guided session with its player |
-| `docs/screenshots/04-today.png` | Today, with the hero action and the streak |
-| `docs/screenshots/05-check-in.png` | The mood and activity check-in |
-| `docs/screenshots/06-breathing.png` | The breathing pacer mid cycle |
-| `docs/screenshots/07-grounding.png` | The grounding wizard on step three |
-| `docs/screenshots/08-progress.png` | Progress, calendar and weekly chart |
-| `docs/screenshots/09-researcher.png` | The researcher demo dashboard |
-| `docs/screenshots/10-more.png` | The More menu and the demo reset |
+| ![Splash](docs/screenshots/01-splash.png) | ![Today](docs/screenshots/04-today.png) |
+
+| Guided session | Practise |
+| --- | --- |
+| ![Guided session](docs/screenshots/03-guided-session.png) | ![Practise](docs/screenshots/06-practise.png) |
+
+| Daily check-in | Breathing exercise |
+| --- | --- |
+| ![Daily check-in](docs/screenshots/05-check-in.png) | ![Breathing](docs/screenshots/06-breathing.png) |
+
+| Grounding | Progress |
+| --- | --- |
+| ![Grounding](docs/screenshots/07-grounding.png) | ![Progress](docs/screenshots/08-progress.png) |
+
+| Researcher dashboard | More |
+| --- | --- |
+| ![Researcher](docs/screenshots/09-researcher.png) | ![More](docs/screenshots/10-more.png) |
+
+Further captures in `docs/screenshots/`: `10-learn.png`, `11-journal.png`, and `15-today-desktop.png`. The wellbeing check is a first-run gate before the programme starts, so the seeded demo (day 9 of 30) does not open it on a normal visit.
 
 ## Features
 
