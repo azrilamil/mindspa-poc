@@ -193,6 +193,7 @@ AI agent and verified by the test suite and the hygiene scan in this repository.
 - [Data and privacy](docs/data-and-privacy.md)
 - [Testing and CI](docs/testing-and-ci.md)
 - [Design decisions](docs/design-decisions.md)
+- [Operations](docs/operations.md)
 - [Changelog](CHANGELOG.md)
 
 ## License
